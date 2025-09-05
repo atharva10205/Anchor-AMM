@@ -1,28 +1,30 @@
-use anchor_lang::{prelude::*, system_program::Transfer};
+use anchor_lang::prelude::CpiContext;
+use anchor_lang::prelude::*;
+use anchor_lang::require;
+use anchor_spl::token::{Transfer, Mint, MintTo, Token, TokenAccount, transfer, mint_to};
 use anchor_spl::{
-    associated_token::AssociatedToken,
-    token::{Mint, MintTo, Token, TokenAccount},
+    associated_token::AssociatedToken
 };
 
 use crate::{AmmError, Config};
 use constant_product_curve::ConstantProduct;
 
 pub fn deposit(ctx: Context<Deposit>, amount: u64, max_x: u64, max_y: u64) -> Result<()> {
-    let ctx: &mut Deposit<'_> = ctx.accounts;
+    let ctx_account= &ctx.accounts;
 
-    require!(!ctx.config.locked, AmmError::PoolLocked);
+    require!(!ctx_account.config.locked, AmmError::PoolLocked);
     require!(amount != 0, AmmError::InvalidAmount);
 
-    let (x, y) = match ctx.mint_liquidity_pool.supply == 0
-        && ctx.vault_x.amount == 0
-        && ctx.vault_y.amount == 0
+    let (x, y) = match ctx_account.mint_liquidity_pool.supply == 0
+        && ctx_account.vault_x.amount == 0
+        && ctx_account.vault_y.amount == 0
     {
         true => (max_x, max_y),
         false => {
             let amount = ConstantProduct::xy_deposit_amounts_from_l(
-                ctx.vault_x.amount,
-                ctx.vault_y.amount,
-                ctx.mint_liquidity_pool,
+                ctx_account.vault_x.amount,
+                ctx_account.vault_y.amount,
+                ctx_account.mint_liquidity_pool.supply,
                 amount,
                 6,
             )
@@ -35,13 +37,13 @@ pub fn deposit(ctx: Context<Deposit>, amount: u64, max_x: u64, max_y: u64) -> Re
         deposit_token(&ctx, true, x)?;
         deposit_token(&ctx, false, y)?;
 
-        mint_lp_tokens(&ctx , amount)
+        mint_lp_tokens(ctx , amount)
 
 
 }
 
 fn deposit_token(ctx: &Context<Deposit>, is_x: bool, amount: u64) -> Result<()> {
-    let ctx: &mut Deposit<'_> = ctx.accounts;
+    let ctx= &ctx.accounts;
 
     let(from,to) = match  
     is_x
@@ -62,32 +64,32 @@ fn deposit_token(ctx: &Context<Deposit>, is_x: bool, amount: u64) -> Result<()> 
     let cpi_account = Transfer{
         from,
         to,
-        ctx.signer.to_account_info(),
+        authority : ctx.signer.to_account_info(),
 
     };
 
     let cpi_context = CpiContext::new(cpi_program , cpi_account);
 
-    transfer(cpi_ctx, amount)
+    transfer(cpi_context, amount)
 }
 
 fn mint_lp_tokens(ctx:Context<Deposit>,amount:u64)->Result<()>{
 
-    let ctx: &mut Deposit<'_> = &ctx.accounts;
+    let ctx_account = &ctx.accounts;
 
-    let cpi_program = ctx.token_program.to_account_info();
+    let cpi_program = ctx_account.token_program.to_account_info();
 
-    let cpi_account = MintTo(
-        ctx.mint_liquidity_pool.to_account_info(),
-        ctx.user_liquidity_pool.to_account_info(),
-        ctx.config.to_account_info()
+    let cpi_account = MintTo{
+        mint: ctx_account.mint_liquidity_pool.to_account_info(),
+        to:ctx_account.user_liquidity_pool.to_account_info(),
+        authority:ctx_account.config.to_account_info()
 
-    );
+    };
 
      let seeds = &[
           b"config".as_ref(),
-          &ctx.config.seed.to_le_bytes(),
-          &[ctx.config.config_bump]
+          &ctx_account.config.seed.to_le_bytes(),
+          &[ctx_account.config.config_bump]
      ];
 
       let signer_seeds = &[&seeds[..]];
@@ -151,7 +153,7 @@ pub struct Deposit<'info> {
 
     #[account(
         mut,
-        associated_token::mint = mint_liquidity_bump,
+        associated_token::mint = mint_liquidity_pool,
         associated_token::authority = signer,
     )]
     pub user_liquidity_pool: Account<'info, TokenAccount>,

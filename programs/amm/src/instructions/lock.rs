@@ -1,16 +1,39 @@
 use anchor_lang::prelude::*;
 
-use crate::Config;
+use crate::{AmmError, Config};
 
 pub fn lock(ctx:Context<Lock>)->Result<()>{
 
+    let ctx = ctx.accounts;
+
+    require!(
+       Some(ctx.signer.key()) == ctx.config.authority,
+       AmmError::InvalidAuthority
+    );
+
+    ctx.config.locked = true;
+    Ok(())
 }
 
 
-#[derive(Account)]
+pub fn unlock(ctx:Context<Lock>)->Result<()>{
+
+    let ctx = ctx.accounts;
+
+    require!(
+       Some(ctx.signer.key()) == ctx.config.authority,
+       AmmError::InvalidAuthority
+    );
+
+    ctx.config.locked = false;
+    Ok(())
+}
+
+
+#[derive(Accounts)]
 pub struct Lock<'info>{
 
-    #[account]
+    #[account(mut)]
     pub signer : Signer<'info>,
 
     #[account(

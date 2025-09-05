@@ -26,8 +26,4 @@ anchor-spl = "0.31.1"
 
 
 
-[lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }
-
-
 constant-product-curve = { git = "https://github.com/deanmlittle/constant-product-curve.git"}
