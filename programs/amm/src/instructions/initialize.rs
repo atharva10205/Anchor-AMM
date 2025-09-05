@@ -1,0 +1,77 @@
+use anchor_lang::prelude::*;
+use anchor_spl::{
+    associated_token::AssociatedToken,
+    token::{Mint, Token, TokenAccount},
+};
+
+use crate::Config;
+
+pub fn initialise(
+    ctx: Context<Initialize>,
+    seed: u64,
+    fee: u16,
+    authority: Option<Pubkey>,
+    bumps: &InitializeBumps,
+) -> Result<()> {
+    let config = &mut ctx.accounts.config;
+
+    config.seed = seed;
+    config.authority = authority;
+    config.mint_x = ctx.accounts.mint_x.key();
+    config.mint_y = ctx.accounts.mint_y.key();
+    config.fee = fee;
+    config.locked = false;
+    config.config_bump = bumps.config;
+    config.liquidity_pool_bump = bumps.mint_liquidity_pool;
+
+    Ok(())
+}
+
+#[derive(Accounts)]
+#[instruction(seed: u64)]
+pub struct Initialize<'info> {
+    #[account(mut)]
+    pub signer: Signer<'info>,
+
+    pub mint_x: Account<'info, Mint>,
+    pub mint_y: Account<'info, Mint>,
+
+    #[account(
+        init,
+        payer=signer,
+        seeds = [b"lp", config.key().as_ref()],
+        bump,
+        mint::decimals = 6,
+        mint::authority = config
+    )]
+    pub mint_liquidity_pool: Account<'info, Mint>,
+
+    #[account(
+        init,
+        payer = signer,
+        associated_token::mint = mint_x,
+        associated_token::authority = config,
+    )]
+    pub vault_x: Account<'info, TokenAccount>,
+
+    #[account(
+        init,
+        payer = signer,
+        associated_token::mint = mint_y,
+        associated_token::authority = config,
+    )]
+    pub vault_y: Account<'info, TokenAccount>,
+
+    #[account(
+        init,
+        payer = signer,
+        seeds = [b"config", seed.to_le_bytes().as_ref()],
+        bump,
+        space = Config::INIT_SPACE,
+    )]
+    pub config: Account<'info, Config>,
+
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token>,
+}
