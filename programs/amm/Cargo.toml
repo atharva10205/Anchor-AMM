@@ -22,8 +22,7 @@ custom-panic = []
 
 [dependencies]
 anchor-lang = "0.31.1"
-anchor-spl = "0.31.1"
-
+anchor-spl  = { version = "0.31.1", features = ["idl-build"] }
 
 
 constant-product-curve = { git = "https://github.com/deanmlittle/constant-product-curve.git"}

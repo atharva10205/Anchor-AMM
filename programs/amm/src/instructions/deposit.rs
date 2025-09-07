@@ -21,7 +21,7 @@ pub fn deposit(ctx: Context<Deposit>, amount: u64, max_x: u64, max_y: u64) -> Re
     {
         true => (max_x, max_y),
         false => {
-            let amount = ConstantProduct::xy_deposit_amounts_from_l(
+            let amounts = ConstantProduct::xy_deposit_amounts_from_l(
                 ctx_account.vault_x.amount,
                 ctx_account.vault_y.amount,
                 ctx_account.mint_liquidity_pool.supply,
@@ -29,7 +29,7 @@ pub fn deposit(ctx: Context<Deposit>, amount: u64, max_x: u64, max_y: u64) -> Re
                 6,
             )
             .unwrap();
-            (amount.x, amount.y)
+            (amounts.x, amounts.y)
         }
     };
         require!(x <= max_x && y <= max_y, AmmError::SlippageExceded);

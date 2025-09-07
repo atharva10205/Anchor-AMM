@@ -6,8 +6,8 @@ use anchor_spl::{
 
 use crate::Config;
 
-pub fn initialise(
-    ctx: Context<Initialize>,
+pub fn initialize(
+    ctx: &mut Context<Initialize>,
     seed: u64,
     fee: u16,
     authority: Option<Pubkey>,
