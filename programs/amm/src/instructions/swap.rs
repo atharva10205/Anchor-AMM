@@ -5,19 +5,19 @@ use anchor_spl::{
 };
 use constant_product_curve::{ConstantProduct, LiquidityPair};
 
-use crate::{AmmError, Config};
+use crate::{error::AmmError, Config};
 
-pub fn swap(ctx: Context<Swap>, is_x: bool, amount: u64, min: u64) -> Result<()> {
-    let ctx = ctx.accounts;
+pub fn swap(ctx: &mut Context<Swap>, is_x: bool, amount: u64, min: u64) -> Result<()> {
+    let ctx_account = &ctx.accounts;
 
-    require!(!ctx.config.locked, AmmError::PoolLocked);
+    require!(!ctx_account.config.locked, AmmError::PoolLocked);
     require!(amount != 0, AmmError::InvalidAmount);
 
     let mut curve = ConstantProduct::init(
-        ctx.vault_x.amount,
-        ctx.vault_y.amount,
-        ctx.mint_lp.supply,
-        ctx.config.fee,
+        ctx_account.vault_x.amount,
+        ctx_account.vault_y.amount,
+        ctx_account.mint_lp.supply,
+        ctx_account.config.fee,
         None,
     )
     .map_err(AmmError::from)?;
@@ -33,12 +33,14 @@ pub fn swap(ctx: Context<Swap>, is_x: bool, amount: u64, min: u64) -> Result<()>
         response.deposit != 0 && response.withdraw != 0,
         AmmError::InvalidAmount
     );
+    deposit(ctx, response.deposit, is_x)?;
+    withdraw(ctx, response.withdraw, is_x)?;
 
     Ok(())
 }
 
-pub fn deposit(ctx: Context<Swap>, amount: u64, is_x: bool) -> Result<()> {
-    let ctx = ctx.accounts;
+fn deposit(ctx: &mut Context<Swap>, amount: u64, is_x: bool) -> Result<()> {
+    let ctx = &ctx.accounts;
 
     let (from, to) = if is_x {
         (ctx.user_x.to_account_info(), ctx.vault_x.to_account_info())
@@ -58,8 +60,8 @@ pub fn deposit(ctx: Context<Swap>, amount: u64, is_x: bool) -> Result<()> {
     transfer(cpi_context, amount)
 }
 
-pub fn withdraw(ctx: Context<Swap>, amount: u64, is_x: bool) -> Result<()> {
-    let ctx = ctx.accounts;
+fn withdraw(ctx: &mut Context<Swap>, amount: u64, is_x: bool) -> Result<()> {
+    let ctx = &ctx.accounts;
 
     let (from, to) = if is_x {
         (ctx.vault_x.to_account_info(), ctx.user_x.to_account_info())
@@ -71,8 +73,14 @@ pub fn withdraw(ctx: Context<Swap>, amount: u64, is_x: bool) -> Result<()> {
     let cpi_account = Transfer {
         to,
         from,
-        authority: ctx.signer.to_account_info(),
+        authority: ctx.config.to_account_info(),
     };
+
+    // let seeds = &[
+    //     &b"config"[..],
+    //     ctx.config.seed
+
+    // ]
 
     let cpi_context = CpiContext::new(cpi_program, cpi_account);
 
@@ -95,6 +103,7 @@ pub struct Swap<'info> {
     pub mint_lp: Account<'info, Mint>,
 
     #[account(
+        mut,
         seeds = [b"config", config.seed.to_le_bytes().as_ref()],
         bump = config.config_bump,
         has_one = mint_x,

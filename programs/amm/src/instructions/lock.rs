@@ -1,10 +1,10 @@
 use anchor_lang::prelude::*;
 
-use crate::{AmmError, Config};
+use crate::{error::AmmError, Config};
 
-pub fn lock(ctx:Context<Lock>)->Result<()>{
+pub fn lock(ctx: &mut Context<Lock>)->Result<()>{
 
-    let ctx = ctx.accounts;
+    let ctx = &mut ctx.accounts;
 
     require!(
        Some(ctx.signer.key()) == ctx.config.authority,
@@ -12,13 +12,14 @@ pub fn lock(ctx:Context<Lock>)->Result<()>{
     );
 
     ctx.config.locked = true;
+
     Ok(())
 }
 
 
-pub fn unlock(ctx:Context<Lock>)->Result<()>{
+pub fn unlock(ctx: &mut Context<Lock>)->Result<()>{
 
-    let ctx = ctx.accounts;
+    let ctx = &mut ctx.accounts;
 
     require!(
        Some(ctx.signer.key()) == ctx.config.authority,

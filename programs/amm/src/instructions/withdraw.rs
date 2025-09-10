@@ -5,18 +5,18 @@ use anchor_spl::{
 };
 use constant_product_curve::ConstantProduct;
 
-use crate::{AmmError, Config};
+use crate::{error::AmmError, Config};
 
-pub fn withdraw(ctx: Context<Withdraw>, amount: u64, min_x: u64, min_y: u64) -> Result<()> {
-    let ctx = ctx.accounts;
+pub fn withdraw(ctx: &mut Context<Withdraw>, amount: u64, min_x: u64, min_y: u64) -> Result<()> {
+    let ctx_account = &ctx.accounts;
 
-    require!(!ctx.config.locked, AmmError::PoolLocked);
+    require!(!ctx_account.config.locked, AmmError::PoolLocked);
     require!(amount != 0, AmmError::InvalidAmount);
 
     let amounts =ConstantProduct::xy_deposit_amounts_from_l(
-    ctx.vault_x.amount,
-    ctx.vault_y.amount,
-    ctx.mint_lp.supply,
+    ctx_account.vault_x.amount,
+    ctx_account.vault_y.amount,
+    ctx_account.mint_lp.supply,
     amount,
     6
 ).map_err(AmmError::from)?;
@@ -27,14 +27,16 @@ pub fn withdraw(ctx: Context<Withdraw>, amount: u64, min_x: u64, min_y: u64) -> 
         AmmError::SlippageExceded
     );
 
-    withdraw_tokens(ctx, true, amount);
+    withdraw_tokens(ctx, true, amount)?;
+    withdraw_tokens(ctx, false, amount)?;
+    burn_token(ctx, amount)?;
     
     Ok(())
 }
 
-fn withdraw_tokens(ctx: Context<Withdraw>,is_x: bool, amount: u64)->Result<()>{
+ fn withdraw_tokens(ctx: &mut Context<Withdraw>,is_x: bool, amount: u64)->Result<()>{
 
-    let ctx = ctx.accounts;
+    let ctx = &ctx.accounts;
 
     let (from , to) = if 
     is_x{(ctx.vault_x.to_account_info() , ctx.user_x.to_account_info())}
@@ -54,9 +56,9 @@ fn withdraw_tokens(ctx: Context<Withdraw>,is_x: bool, amount: u64)->Result<()>{
    
 }
 
-fn burn_token(ctx: Context<Withdraw>,amount: u64)->Result<()>{
+fn burn_token(ctx: &mut Context<Withdraw>,amount: u64)->Result<()>{
 
-    let ctx = ctx.accounts;
+    let ctx = &ctx.accounts;
 
     let cpi_account = Burn {
         mint: ctx.mint_lp.to_account_info(),
