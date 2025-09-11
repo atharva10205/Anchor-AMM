@@ -213,6 +213,7 @@ describe("amm", () => {
       .rpc();
 
     const user_Y_After = await connection.getTokenAccountBalance(user_y);
+
     assert.ok(
       BigInt(user_Y_After.value.amount) > BigInt(user_Y_Before.value.amount)
     );

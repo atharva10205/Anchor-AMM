@@ -64,9 +64,9 @@ fn withdraw(ctx: &mut Context<Swap>, amount: u64, is_x: bool) -> Result<()> {
     let ctx = &ctx.accounts;
 
     let (from, to) = if is_x {
-        (ctx.vault_x.to_account_info(), ctx.user_x.to_account_info())
-    } else {
         (ctx.vault_y.to_account_info(), ctx.user_y.to_account_info())
+    } else {
+        (ctx.vault_x.to_account_info(), ctx.user_x.to_account_info())
     };
 
     let cpi_program = ctx.token_program.to_account_info();
@@ -76,13 +76,15 @@ fn withdraw(ctx: &mut Context<Swap>, amount: u64, is_x: bool) -> Result<()> {
         authority: ctx.config.to_account_info(),
     };
 
-    // let seeds = &[
-    //     &b"config"[..],
-    //     ctx.config.seed
+    let seeds = &[
+        &b"config"[..],
+        &ctx.config.seed.to_le_bytes(),
+        &[ctx.config.config_bump],
+    ];
 
-    // ]
+    let signer_seeds = &[&seeds[..]];
 
-    let cpi_context = CpiContext::new(cpi_program, cpi_account);
+    let cpi_context = CpiContext::new_with_signer(cpi_program, cpi_account, signer_seeds);
 
     transfer(cpi_context, amount)
 }
