@@ -34,6 +34,6 @@ pub mod amm {
         instructions::lock::lock(&mut ctx)
     }
     pub fn unlock(mut ctx: Context<Lock>) -> Result<()> {
-        instructions::lock::lock(&mut ctx)
+        instructions::lock::unlock(&mut ctx)
     }
 }

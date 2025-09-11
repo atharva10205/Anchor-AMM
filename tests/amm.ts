@@ -219,27 +219,64 @@ describe("amm", () => {
     );
   });
 
-  // it("lock and unlock pool", async () => {
-  //   await program.methods
-  //     .lock()
-  //     .accountsStrict({
-  //       signer: admin.publicKey,
-  //       config: config,
-  //     })
-  //     .signers([admin])
-  //     .rpc();
-  //   let configAccount = await program.account.config.fetch(config);
-  //   assert.equal(configAccount.locked, true);
+  it("lock and unlock pool", async () => {
+    await program.methods
+      .lock()
+      .accountsStrict({
+        signer: admin.publicKey,
+        config: config,
+      })
+      .signers([admin])
+      .rpc();
+    let configAccount = await program.account.config.fetch(config);
+    assert.equal(configAccount.locked, true);
 
-  //   await program.methods
-  //     .unlock()
-  //     .accountsStrict({
-  //       signer: admin.publicKey,
-  //       config: config,
-  //     })
-  //     .signers([admin])
-  //     .rpc();
-  //   configAccount = await program.account.config.fetch(config);
-  //   assert.equal(configAccount.locked, false);
-  // });
+    await program.methods
+      .unlock()
+      .accountsStrict({
+        signer: admin.publicKey,
+        config: config,
+      })
+      .signers([admin])
+      .rpc();
+    configAccount = await program.account.config.fetch(config);
+    assert.equal(configAccount.locked, false);
+  });
+
+  it("withdraw liquidity", async () => {
+    const user_lp_before = await connection.getTokenAccountBalance(user_lp);
+    const userXBefore = await connection.getTokenAccountBalance(user_x);
+    const userYBefore = await connection.getTokenAccountBalance(user_y);
+
+    const withdrawAmount = new anchor.BN(user_lp_before.value.amount).div(
+      new anchor.BN(2)
+    );
+    const minX = new anchor.BN(1);
+    const minY = new anchor.BN(1);
+
+    await program.methods.withdraw(withdrawAmount, minX, minY).accountsStrict({
+      signer: user.publicKey,
+      mintX: mint_x,
+      mintY: mint_y,
+      config: config,
+      mintLp: mint_liquidity_pool,
+      vaultX: vault_x,
+      vaultY: vault_y,
+      userX: user_x,
+      userY: user_y,
+      userLp: user_lp,
+      tokenProgram,
+      associatedTokenProgram,
+      systemProgram: SystemProgram.programId,
+    }).signers([user])
+    .rpc();
+
+    const userLpAfter = await connection.getTokenAccountBalance(user_lp);
+    const userXAfter = await connection.getTokenAccountBalance(user_x);
+    const userYAfter = await connection.getTokenAccountBalance(user_y);
+
+    assert.ok(BigInt(userLpAfter.value.amount) < BigInt(user_lp_before.value.amount));
+    assert.ok(BigInt(userXAfter.value.amount) > BigInt(userXBefore.value.amount));
+    assert.ok(BigInt(userYAfter.value.amount) > BigInt(userYBefore.value.amount));
+  });
 });
